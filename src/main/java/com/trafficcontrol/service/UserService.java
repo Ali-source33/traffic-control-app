@@ -3,6 +3,9 @@ package com.trafficcontrol.service;
 import com.trafficcontrol.entity.User;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -13,6 +16,8 @@ import java.util.List;
 
 @Service
 @Transactional
+@Primary
+@Qualifier("userService")
 public class UserService implements UserDetailsService {
 
     @PersistenceContext
@@ -56,7 +61,7 @@ public class UserService implements UserDetailsService {
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getUsername())
                 .password(user.getPassword())
-                .roles(user.getRole().getName()) // ROLE_ADMIN, ROLE_KOLLUK, ROLE_USER gibi
+                .roles(user.getRole().getName())
                 .build();
     }
 }

@@ -3,14 +3,17 @@ package com.trafficcontrol.controller;
 import com.trafficcontrol.entity.Person;
 import com.trafficcontrol.entity.User;
 import com.trafficcontrol.entity.SearchLog;
+import com.trafficcontrol.exception.PersonNotFoundException;
+import com.trafficcontrol.exception.UnauthorizedException;
 import com.trafficcontrol.service.PersonService;
 import com.trafficcontrol.service.UserService;
 import com.trafficcontrol.service.SearchLogService;
 import com.trafficcontrol.security.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/persons")
@@ -21,6 +24,7 @@ public class PersonController {
     private final SearchLogService searchLogService;
     private final JwtUtil jwtUtil;
 
+    @Autowired
     public PersonController(PersonService personService, UserService userService,
                             SearchLogService searchLogService, JwtUtil jwtUtil) {
         this.personService = personService;
@@ -35,6 +39,10 @@ public class PersonController {
         return userService.getUserByUsername(username);
     }
 
+    private void checkAdmin(HttpServletRequest request) {
+        if (!isAdmin(request)) throw new UnauthorizedException("Yetkisiz erişim");
+    }
+
     private boolean isAdmin(HttpServletRequest request) {
         User user = getCurrentUser(request);
         return user != null && user.getRole().getName().equalsIgnoreCase("ADMIN");
@@ -47,38 +55,17 @@ public class PersonController {
 
     @PostMapping
     public ResponseEntity<?> addPerson(@RequestBody Person person, HttpServletRequest request) {
-        if (!isAdmin(request)) return ResponseEntity.status(403).body("Yetkisiz erişim");
+        checkAdmin(request);
         personService.createPerson(person);
         return ResponseEntity.ok("Person eklenmiştir");
     }
 
-    @PutMapping
-    public ResponseEntity<?> updatePerson(@RequestBody Person person, HttpServletRequest request) {
-        if (!isAdmin(request)) return ResponseEntity.status(403).body("Yetkisiz erişim");
-        try {
-            personService.updatePersonByTc(person);
-            return ResponseEntity.ok("Person güncellendi");
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(404).body(e.getMessage());
-        }
-    }
-
-    @DeleteMapping("/{tcKimlik}")
-    public ResponseEntity<?> deletePerson(@PathVariable String tcKimlik, HttpServletRequest request) {
-        if (!isAdmin(request)) return ResponseEntity.status(403).body("Yetkisiz erişim");
-        Person person = personService.getPersonByTc(tcKimlik);
-        if (person == null) return ResponseEntity.notFound().build();
-        personService.deletePerson(person);
-        return ResponseEntity.ok("Person silindi");
-    }
-
     @GetMapping("/{tcKimlik}")
     public ResponseEntity<?> getPersonByTc(@PathVariable String tcKimlik, HttpServletRequest request) {
-        if (!isKolluk(request) && !isAdmin(request))
-            return ResponseEntity.status(403).body("Yetkisiz erişim");
+        if (!isKolluk(request) && !isAdmin(request)) throw new UnauthorizedException("Yetkisiz erişim");
 
         Person person = personService.getPersonByTc(tcKimlik);
-        if (person == null) return ResponseEntity.notFound().build();
+        if (person == null) throw new PersonNotFoundException("Kişi bulunamadı: " + tcKimlik);
 
         User currentUser = getCurrentUser(request);
         SearchLog log = new SearchLog();
@@ -92,20 +79,46 @@ public class PersonController {
         return ResponseEntity.ok(person);
     }
 
+    @PutMapping
+    public ResponseEntity<?> updatePerson(@RequestBody Person person, HttpServletRequest request) {
+        checkAdmin(request);
+        Person existingPerson = personService.getPersonByTc(person.getTcKimlik());
+        if (existingPerson == null) throw new PersonNotFoundException("Kişi bulunamadı: " + person.getTcKimlik());
 
-    @GetMapping
-    public ResponseEntity<?> getAllPersons(HttpServletRequest request) {
-        if (!isKolluk(request) && !isAdmin(request)) return ResponseEntity.status(403).body("Yetkisiz erişim");
-        List<Person> persons = personService.getAllPersons();
+        personService.updatePersonByTc(person);
+        return ResponseEntity.ok("Person güncellendi");
+    }
 
-        User currentUser = getCurrentUser(request);
-        SearchLog log = new SearchLog();
-        log.setPerformedBy(currentUser);
-        log.setSearchType("TÜM KİŞİLER");
-        log.setSearchValue("N/A");
-        log.setResultSummary("Toplam kayıt sayısı: " + persons.size());
-        searchLogService.logSearch(log);
+    @PatchMapping("/{tcKimlik}/wanted")
+    public ResponseEntity<?> updatePersonWanted(@PathVariable String tcKimlik,
+                                                @RequestBody Map<String, Boolean> updates,
+                                                HttpServletRequest request) {
+        checkAdmin(request);
 
-        return ResponseEntity.ok(persons);
+        Person person = personService.getPersonByTc(tcKimlik);
+        if (person == null) throw new PersonNotFoundException("Kişi bulunamadı: " + tcKimlik);
+
+        if (!updates.containsKey("isWanted")) {
+            return ResponseEntity.badRequest().body("isWanted alanı gönderilmedi");
+        }
+
+        person.setIsWanted(updates.get("isWanted"));
+        personService.updatePersonByTc(person);
+
+        return ResponseEntity.ok(Map.of(
+            "tcKimlik", person.getTcKimlik(),
+            "isWanted", person.getIsWanted()
+        ));
+    }
+
+    @DeleteMapping("/{tcKimlik}")
+    public ResponseEntity<?> deletePerson(@PathVariable String tcKimlik, HttpServletRequest request) {
+        checkAdmin(request);
+
+        Person person = personService.getPersonByTc(tcKimlik);
+        if (person == null) throw new PersonNotFoundException("Kişi bulunamadı: " + tcKimlik);
+
+        personService.deletePerson(person);
+        return ResponseEntity.ok("Person silindi");
     }
 }

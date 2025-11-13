@@ -5,6 +5,8 @@ import com.trafficcontrol.entity.User;
 import com.trafficcontrol.service.AuthService;
 import com.trafficcontrol.service.RoleService;
 import com.trafficcontrol.service.UserService;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +19,8 @@ public class AuthController {
     private final AuthService authService;
     private final UserService userService;
     private final RoleService roleService;
-
+    
+    @Autowired
     public AuthController(AuthService authService, UserService userService, RoleService roleService) {
         this.authService = authService;
         this.userService = userService;
@@ -55,10 +58,8 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Kullanıcı zaten mevcut");
         }
 
-        // Şifreyi encode et
         user.setPassword(authService.encodePassword(user.getPassword()));
 
-        // Rol belirleme
         Role role;
         if (user.getRole() != null && user.getRole().getName() != null) {
             role = roleService.getRoleByName(user.getRole().getName());

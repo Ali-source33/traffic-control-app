@@ -2,16 +2,23 @@ package com.trafficcontrol.service;
 
 import com.trafficcontrol.entity.User;
 import com.trafficcontrol.security.JwtUtil;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
+@Qualifier("authService")
+@Primary
 public class AuthService {
 
     private final UserService userService;
     private final JwtUtil jwtUtil;
     private final BCryptPasswordEncoder passwordEncoder;
-
+    
+    @Autowired
     public AuthService(UserService userService, JwtUtil jwtUtil) {
         this.userService = userService;
         this.jwtUtil = jwtUtil;

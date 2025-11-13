@@ -4,17 +4,39 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
 
 @Component
-public class JwtUtil {
+@Lazy
 
-    private static final String SECRET_KEY = "my_super_secret_key_for_jwt_which_is_very_long_and_secure_for_hs256";
-    private static final long EXPIRATION_TIME = 1000 * 60 * 60 * 5; // 5 saat
-    private final Key key = Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
+public class JwtUtil {
+	
+	@Value("${jwt.secret:my_super_secret_key_for_jwt_which_is_very_long_and_secure_for_hs256}")
+	
+    private String SECRET_KEY;
+    private static final long EXPIRATION_TIME = 1000 * 60 * 60 * 5; 
+    private Key key;
+    
+    @PostConstruct
+    public void init() {
+        this.key = Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
+        System.out.println("JwtUtil bean oluştu.");
+    }
+   
+
+    @PreDestroy
+    public void cleanup() {
+        System.out.println("JwtUtil bean siliniyor.");
+    }
+
 
     public String generateToken(String username) {
         return Jwts.builder()
@@ -40,7 +62,7 @@ public class JwtUtil {
 
     private Claims extractClaims(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(key) // artık deprecated değil
+                .setSigningKey(key)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();

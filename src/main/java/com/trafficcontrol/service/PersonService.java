@@ -3,6 +3,9 @@ package com.trafficcontrol.service;
 import com.trafficcontrol.entity.Person;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,6 +13,8 @@ import java.util.List;
 
 @Service
 @Transactional
+@Primary
+@Qualifier("personService")
 public class PersonService {
 
     @PersistenceContext
